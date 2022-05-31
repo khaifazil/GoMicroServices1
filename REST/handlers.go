@@ -9,17 +9,39 @@ import (
 )
 
 func home(w http.ResponseWriter, r *http.Request) {
+
+	if !validKey(r) {
+		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
+		return
+	}
+
 	fmt.Fprintf(w, "Welcome to the REST API!")
 }
 
 func allCourses(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprintf(w, "List of all courses")
 
-	//returns the key/value pairs in the query string as a map object
-	kv := r.URL.Query()
+	if !validKey(r) {
+		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
+		return
+	}
 
-	for k, v := range kv {
-		fmt.Println(k, v) //print out the key/value pair
+	db := openDatabase()
+	defer db.Close()
+	defer fmt.Println("Database closed")
+
+	results, err := db.Query("SELECT * FROM courses")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for results.Next() {
+		var course courseInfo
+		err := results.Scan(&course.Id, &course.Title)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		courses[course.Title] = course
 	}
 	// returns all the courses in JSON
 	json.NewEncoder(w).Encode(courses)
@@ -28,33 +50,47 @@ func allCourses(w http.ResponseWriter, r *http.Request) {
 func course(w http.ResponseWriter, r *http.Request) {
 
 	if !validKey(r) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("401 - Invalid key"))
+		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
 		return
 	}
 
+	db := openDatabase()
+	defer db.Close()
+	defer fmt.Println("Database closed")
+
 	params := mux.Vars(r)
-	// fmt.Fprintf(w, "Detail for course "+params["courseid"])
-	// fmt.Fprintf(w, "\n")
-	// fmt.Fprintf(w, r.Method)
+
+	results, err := db.Query("SELECT * FROM courses")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for results.Next() {
+		var course courseInfo
+		err := results.Scan(&course.Id, &course.Title)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		courses[course.Title] = course
+	}
 
 	if r.Method == "GET" {
-		if _, ok := courses[params["courseid"]]; ok {
-			json.NewEncoder(w).Encode(courses[params["courseid"]])
+
+		if _, ok := courses[params["courseId"]]; ok {
+			json.NewEncoder(w).Encode(courses[params["courseId"]])
 		} else {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("404 - No course found"))
+			http.Error(w, "404 - No course found", http.StatusNotFound)
 		}
 	}
 
 	if r.Method == "DELETE" {
-		if _, ok := courses[params["courseid"]]; ok {
-			delete(courses, params["courseid"])
+		if _, ok := courses[params["courseId"]]; ok {
+			delete(courses, params["courseId"])
 			w.WriteHeader(http.StatusAccepted)
-			w.Write([]byte("202 - Course deleted: " + params["courseid"]))
+			w.Write([]byte("202 - Course deleted: " + params["courseId"]))
 		} else {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("404 - No course found"))
+			http.Error(w, "404 - No course found", http.StatusNotFound)
 		}
 	}
 
@@ -73,23 +109,20 @@ func course(w http.ResponseWriter, r *http.Request) {
 				json.Unmarshal(reqBody, &newCourse)
 
 				if newCourse.Title == "" {
-					w.WriteHeader(http.StatusUnprocessableEntity)
-					w.Write([]byte("422 - Please supply course " + "information " + "in JSON format"))
+					http.Error(w, "422 - Please supply course information in JSON format", http.StatusNotFound)
 					return
 				}
 
 				//check if course exists; add only if course does not exists
-				if _, ok := courses[params["courseid"]]; !ok {
-					courses[params["courseid"]] = newCourse
+				if _, ok := courses[params["courseId"]]; !ok {
+					courses[params["courseId"]] = newCourse
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte("201 - Course added: " + params["courseid"]))
+					w.Write([]byte("201 - Course added: " + params["courseId"]))
 				} else {
-					w.WriteHeader(http.StatusConflict)
-					w.Write([]byte("409 - Duplicate course ID"))
+					http.Error(w, "409 - Duplicate course ID", http.StatusConflict)
 				}
 			} else {
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				w.Write([]byte("422 - Please supply course information " + "in JSON format"))
+				http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)
 			}
 		} // end of post for new course
 
@@ -100,25 +133,23 @@ func course(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				json.Unmarshal(reqBody, &newCourse)
 				if newCourse.Title == "" {
-					w.WriteHeader(http.StatusUnprocessableEntity)
-					w.Write([]byte("422 - Please supply course " + " information " + "in JSON format"))
+					http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)
 					return
 				}
 
 				// check if course exists; add only if course does not exist
-				if _, ok := courses[params["courseid"]]; !ok {
-					courses[params["courseid"]] = newCourse
+				if _, ok := courses[params["courseId"]]; !ok {
+					courses[params["courseId"]] = newCourse
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte("201 - Course added: " + params["courseid"]))
+					w.Write([]byte("201 - Course added: " + params["courseId"]))
 				} else {
 					// update course
-					courses[params["courseid"]] = newCourse
+					courses[params["courseId"]] = newCourse
 					w.WriteHeader(http.StatusAccepted)
-					w.Write([]byte("202 - Course updated: " + params["courseid"]))
+					w.Write([]byte("202 - Course updated: " + params["courseId"]))
 				}
 			} else {
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				w.Write([]byte("422 - Please supply " + "course information " + "in JSON format"))
+				http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)
 			}
 		} // end of put for update
 	}
