@@ -17,3 +17,20 @@ func openDatabase() *sql.DB {
 	}
 	return db
 }
+
+func PopulateMap(db *sql.DB) {
+	results, err := db.Query("SELECT * FROM courses")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for results.Next() {
+		var course courseInfo
+		err := results.Scan(&course.Id, &course.Title)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		courses[course.Title] = course
+	}
+}
