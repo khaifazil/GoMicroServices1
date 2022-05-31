@@ -77,18 +77,23 @@ func course(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 
-		if _, ok := courses[params["courseId"]]; ok {
-			json.NewEncoder(w).Encode(courses[params["courseId"]])
+		if _, ok := courses[params["courseTitle"]]; ok {
+			json.NewEncoder(w).Encode(courses[params["courseTitle"]])
 		} else {
 			http.Error(w, "404 - No course found", http.StatusNotFound)
 		}
 	}
 
 	if r.Method == "DELETE" {
-		if _, ok := courses[params["courseId"]]; ok {
-			delete(courses, params["courseId"])
+		if k, ok := courses[params["courseTitle"]]; ok {
+			query := fmt.Sprintf("DELETE FROM courses WHERE title='%v'", k.Title)
+			_, err := db.Query(query)
+			if err != nil {
+				panic(err.Error())
+			}
+			delete(courses, params["courseTitle"])
 			w.WriteHeader(http.StatusAccepted)
-			w.Write([]byte("202 - Course deleted: " + params["courseId"]))
+			w.Write([]byte("202 - Course deleted: " + k.Title))
 		} else {
 			http.Error(w, "404 - No course found", http.StatusNotFound)
 		}
@@ -114,10 +119,10 @@ func course(w http.ResponseWriter, r *http.Request) {
 				}
 
 				//check if course exists; add only if course does not exists
-				if _, ok := courses[params["courseId"]]; !ok {
-					courses[params["courseId"]] = newCourse
+				if _, ok := courses[params["courseTitle"]]; !ok {
+					courses[params["courseTitle"]] = newCourse
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte("201 - Course added: " + params["courseId"]))
+					w.Write([]byte("201 - Course added: " + params["courseTitle"]))
 				} else {
 					http.Error(w, "409 - Duplicate course ID", http.StatusConflict)
 				}
@@ -138,15 +143,15 @@ func course(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// check if course exists; add only if course does not exist
-				if _, ok := courses[params["courseId"]]; !ok {
-					courses[params["courseId"]] = newCourse
+				if _, ok := courses[params["courseTitle"]]; !ok {
+					courses[params["courseTitle"]] = newCourse
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte("201 - Course added: " + params["courseId"]))
+					w.Write([]byte("201 - Course added: " + params["courseTitle"]))
 				} else {
 					// update course
-					courses[params["courseId"]] = newCourse
+					courses[params["courseTitle"]] = newCourse
 					w.WriteHeader(http.StatusAccepted)
-					w.Write([]byte("202 - Course updated: " + params["courseId"]))
+					w.Write([]byte("202 - Course updated: " + params["courseTitle"]))
 				}
 			} else {
 				http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)

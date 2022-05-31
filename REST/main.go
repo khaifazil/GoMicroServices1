@@ -37,7 +37,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v1/", home)
 	router.HandleFunc("/api/v1/courses", allCourses)
-	router.HandleFunc("/api/v1/courses/{courseId}", course).Methods("GET", "PUT", "POST", "DELETE")
+	router.HandleFunc("/api/v1/courses/{courseTitle}", course).Methods("GET", "PUT", "POST", "DELETE")
 
 	fmt.Println("Listening at port 5000")
 	log.Fatal(http.ListenAndServe(":5000", router))
