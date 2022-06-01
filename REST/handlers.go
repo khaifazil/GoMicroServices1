@@ -58,10 +58,12 @@ func course(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		RetrieveCourse(w, r)
 	}
-	//update
-	if r.Method == "PUT" {
-		UpdateCourse(w, r, db)
-		return
+	if r.Header.Get("Content-Type") == "application/json" {
+		//update
+		if r.Method == "PUT" {
+			UpdateCourse(w, r, db)
+			return
+		}
 	}
 	//delete
 	if r.Method == "DELETE" {
