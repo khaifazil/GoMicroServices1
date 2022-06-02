@@ -7,11 +7,11 @@ import (
 
 func openDatabase() *sql.DB {
 	//Use mysql as driverName and a valid DSN as dataSourceName:
-	db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/goms1_db")
+	db, err := sql.Open("mysql", "root:password@tcp(localhost:51975)/my_db")
 
 	//handle error
 	if err != nil {
-		panic(err.Error())
+		ErrorLogger.Fatalf("Unable to open database: %v", err)
 	} else {
 		fmt.Println("Database opened")
 	}
@@ -19,9 +19,10 @@ func openDatabase() *sql.DB {
 }
 
 func PopulateMap(db *sql.DB) {
-	results, err := db.Query("SELECT * FROM courses")
+	results, err := db.Query("SELECT * FROM Courses")
 	if err != nil {
-		panic(err.Error())
+		ErrorLogger.Printf("Unable to populate map: %v", err)
+		return
 	}
 
 	for results.Next() {

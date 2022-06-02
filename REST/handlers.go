@@ -13,6 +13,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 	if !validKey(r) {
 		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
+		ErrorLogger.Println("401 - Invalid key")
 		return
 	}
 
@@ -23,6 +24,7 @@ func allCourses(w http.ResponseWriter, r *http.Request) {
 
 	if !validKey(r) {
 		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
+		ErrorLogger.Println("401 - Invalid key")
 		return
 	}
 
@@ -40,6 +42,7 @@ func course(w http.ResponseWriter, r *http.Request) {
 
 	if !validKey(r) {
 		http.Error(w, "401 - Invalid key", http.StatusUnauthorized)
+		ErrorLogger.Println("401 - Invalid key")
 		return
 	}
 
@@ -76,12 +79,14 @@ func CreateCourse(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	params := mux.Vars(r)
 	if _, ok := courses[params["courseTitle"]]; ok { //check for duplicate
 		http.Error(w, "409 - Duplicate course ID", http.StatusConflict)
+		ErrorLogger.Println("409 - Duplicate course ID")
 		return
 	} else {
-		query := fmt.Sprintf("INSERT INTO courses (title) VALUES ('%s')", params["courseTitle"])
+		query := fmt.Sprintf("INSERT INTO Courses (title) VALUES ('%s')", params["courseTitle"])
 		_, err := db.Query(query)
 		if err != nil {
-			panic(err.Error())
+			ErrorLogger.Printf("Unable to create new course: %v", err)
+			return
 		}
 		courses[params["courseTitle"]] = newCourse
 		http.Error(w, "201 - Course added: "+params["courseTitle"], http.StatusCreated)
@@ -94,6 +99,7 @@ func RetrieveCourse(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(courses[params["courseTitle"]])
 	} else {
 		http.Error(w, "404 - No course found", http.StatusNotFound)
+		ErrorLogger.Println("404 - No course found")
 	}
 }
 
@@ -103,11 +109,17 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)
+		ErrorLogger.Println("422 - Please supply course information in JSON format")
 		return
 	} else {
-		json.Unmarshal(reqBody, &newCourse)
+		err := json.Unmarshal(reqBody, &newCourse)
+		if err != nil {
+			ErrorLogger.Printf("Unable to unmarshall JSON: %v", err)
+			return
+		}
 		if newCourse.Title == "" {
 			http.Error(w, "422 - Please supply course information in JSON format", http.StatusUnprocessableEntity)
+			ErrorLogger.Println("422 - Please supply course information in JSON format")
 			return
 		}
 		// check if course exists; add only if course does not exist
@@ -115,10 +127,11 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 			CreateCourse(w, r, db)
 			return
 		} else { // update course
-			query := fmt.Sprintf("UPDATE courses SET title='%s' WHERE id=%d", newCourse.Title, k.Id)
+			query := fmt.Sprintf("UPDATE Courses SET title='%s' WHERE id=%d", newCourse.Title, k.Id)
 			_, err := db.Query(query)
 			if err != nil {
-				panic(err.Error())
+				ErrorLogger.Printf("Unable to complete Update query: %v", err)
+				return
 			}
 			courses[newCourse.Title] = newCourse
 			delete(courses, params["courseTitle"])
@@ -130,15 +143,17 @@ func UpdateCourse(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 func DeleteCourse(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	params := mux.Vars(r)
 	if k, ok := courses[params["courseTitle"]]; ok {
-		query := fmt.Sprintf("DELETE FROM courses WHERE title='%v'", k.Title)
+		query := fmt.Sprintf("DELETE FROM Courses WHERE title='%v'", k.Title)
 		_, err := db.Query(query)
 		if err != nil {
-			panic(err.Error())
+			ErrorLogger.Printf("Unable to complete delete query: %v", err)
+			return
 		}
 		delete(courses, params["courseTitle"])
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("202 - Course deleted: " + k.Title))
 	} else {
 		http.Error(w, "404 - No course found", http.StatusNotFound)
+		ErrorLogger.Println("404 - No course found")
 	}
 }
